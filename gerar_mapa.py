@@ -44,7 +44,9 @@ def arquivos_dos_anos(anos):
     req = urllib.request.Request(INDICE, headers=UA)
     with urllib.request.urlopen(req, timeout=60) as r:
         indice = json.loads(r.read().decode('utf-8-sig'))
-    por_ano = {int(x['periodo']): BASE + x['arquivo'] for g in indice['data'] for x in g['lista']}
+    # alguns itens do índice não são um ano (ex.: "Dados a partir de 2013"): ficam de fora
+    por_ano = {int(x['periodo']): BASE + x['arquivo'] for g in indice['data'] for x in g['lista']
+               if str(x.get('periodo', '')).strip().isdigit()}
     return [por_ano[a] for a in anos if a in por_ano]
 
 
