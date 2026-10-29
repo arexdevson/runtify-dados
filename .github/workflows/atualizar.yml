@@ -1,0 +1,34 @@
+name: Atualiza resumo da SSP-SP
+
+on:
+  schedule:
+    - cron: '0 9 10,25 * *'   # dias 10 e 25, 6h de Brasília
+  workflow_dispatch:           # botão "Run workflow" para rodar na hora
+
+permissions:
+  contents: write
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install openpyxl
+      - run: python gerar_mapa.py --saida novo.json
+      - name: Grava só se os dados mudaram
+        run: |
+          mudou=$(python -c "import json; a=json.load(open('sp-capital.json',encoding='utf-8')); b=json.load(open('novo.json',encoding='utf-8')); print(int((a['meses'],a['celulas'])!=(b['meses'],b['celulas'])))")
+          if [ "$mudou" = "1" ]; then
+            mv novo.json sp-capital.json
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add sp-capital.json
+            git commit -m "Atualiza resumo da SSP-SP"
+            git push
+          else
+            echo "Sem mudanças nos dados."
+          fi
