@@ -15,6 +15,7 @@ import datetime as dt
 import json
 import sys
 import tempfile
+import time
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
@@ -33,17 +34,34 @@ CRIMES = {'Roubo (art. 157)': 'roubo', 'Furto (art. 155)': 'furto'}
 CAIXA = (-24.01, -23.35, -46.83, -46.36)
 
 
+def com_tentativas(funcao, tentativas=4):
+    """O site da SSP às vezes derruba a conexão: tenta de novo, esperando cada vez mais."""
+    for n in range(tentativas):
+        try:
+            return funcao()
+        except OSError as erro:
+            if n == tentativas - 1:
+                raise
+            espera = 60 * (n + 1)
+            print(f'falhou ({erro}), tentando de novo em {espera}s', file=sys.stderr)
+            time.sleep(espera)
+
+
 def baixar(url, destino):
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=600) as r, open(destino, 'wb') as f:
-        while bloco := r.read(1 << 20):
-            f.write(bloco)
+    def uma_vez():
+        req = urllib.request.Request(url, headers=UA)
+        with urllib.request.urlopen(req, timeout=600) as r, open(destino, 'wb') as f:
+            while bloco := r.read(1 << 20):
+                f.write(bloco)
+    com_tentativas(uma_vez)
 
 
 def arquivos_dos_anos(anos):
-    req = urllib.request.Request(INDICE, headers=UA)
-    with urllib.request.urlopen(req, timeout=60) as r:
-        indice = json.loads(r.read().decode('utf-8-sig'))
+    def uma_vez():
+        req = urllib.request.Request(INDICE, headers=UA)
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read().decode('utf-8-sig'))
+    indice = com_tentativas(uma_vez)
     # alguns itens do índice não são um ano (ex.: "Dados a partir de 2013"): ficam de fora
     por_ano = {int(x['periodo']): BASE + x['arquivo'] for g in indice['data'] for x in g['lista']
                if str(x.get('periodo', '')).strip().isdigit()}
