@@ -63,8 +63,9 @@ def arquivos_dos_anos(anos):
             return json.loads(r.read().decode('utf-8-sig'))
     indice = com_tentativas(uma_vez)
     # alguns itens do índice não são um ano (ex.: "Dados a partir de 2013"): ficam de fora
+    # o índice lista vários tipos de planilha por ano: só interessa a "SPDadosCriminais"
     por_ano = {int(x['periodo']): BASE + x['arquivo'] for g in indice['data'] for x in g['lista']
-               if str(x.get('periodo', '')).strip().isdigit()}
+               if str(x.get('periodo', '')).strip().isdigit() and 'SPDadosCriminais' in x.get('arquivo', '')}
     return [por_ano[a] for a in anos if a in por_ano]
 
 
@@ -151,6 +152,10 @@ def main():
                 if c:
                     total += 2 * c[0] + c[1]
         return total
+
+    # trava: resumo vazio ou pequeno demais indica erro (planilha errada, formato mudou): não grava
+    if len(celulas) < 1000:
+        sys.exit(f'erro: só {len(celulas)} quadradinhos; resumo NÃO gravado')
 
     pesos = [peso(k) for k in celulas]
     resumo = {
